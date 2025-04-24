@@ -6,6 +6,18 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Check and install 'jq' if it's not installed
+if ! command -v jq &>/dev/null; then
+    echo "'jq' is not installed. Installing it now..."
+    apt-get update && apt-get install -y jq
+    if [ $? -ne 0 ]; then
+        echo "Failed to install jq. Please install it manually and re-run the script."
+        exit 1
+    fi
+else
+    echo "'jq' is already installed."
+fi
+
 # Define the base project directory
 BASE_DIR="/root/BaseTemplate"
 
@@ -16,12 +28,7 @@ if [ ! -f "$API_FILE" ]; then
     exit 1
 fi
 
-# Extract data from JSON using 'jq' (ensure jq is installed)
-if ! command -v jq &>/dev/null; then
-    echo "'jq' is not installed. Please install it and re-run the script."
-    exit 1
-fi
-
+# Extract data from JSON using 'jq'
 AUTHOR=$(jq -r '.author' "$API_FILE")
 PLUGIN_NAME=$(jq -r '.plugin_name' "$API_FILE")
 VERSION=$(jq -r '.version' "$API_FILE")
