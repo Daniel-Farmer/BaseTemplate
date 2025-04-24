@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Ensure the script is run as sudo
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Please run this script as sudo!"
+    exit 1
+fi
+
 # Create the main project directory structure
 mkdir -p BaseTemplate/src/main/java/com/yourname/myplugin
 mkdir -p BaseTemplate/src/main/resources
@@ -42,4 +48,12 @@ This repository contains the setup for a Minecraft plugin using the Spigot API.
 - **src/main/java/com/yourname/myplugin/Main.java**: The main class for the plugin.
 
 ## How to Use
-1.
+1. Modify the \`Main.java\` and \`plugin.yml\` files as needed.
+2. Compile the project into a JAR file.
+3. Place the JAR file into the \`plugins\` folder of your Spigot Minecraft server.
+
+Happy coding!
+EOL
+
+# Final message
+echo "Spigot plugin project structure created successfully!"
