@@ -1,17 +1,30 @@
 # BaseTemplate
-
-A streamlined Bash script that sets up the project structure for a Minecraft Spigot plugin, complete with essential files and directories.
-
+A streamlined Bash script designed to set up the directory structure and essential files for a Minecraft Spigot plugin.
 ## Features
-- Automatically creates a Spigot plugin directory structure.
-- Generates `plugin.yml` with basic configuration.
-- Provides a starter `Main.java` class for your plugin.
-- Includes a `README.md` to guide usage.
-
-## How to Use
-
-To set up the Spigot plugin structure, use one of the following one-liner commands:
-
-- **Using `curl`**:
+- Dynamically creates a Spigot plugin directory structure based on API-provided data.
+- Reads configuration from a JSON file (`api-data.json`) for customization.
+- Automatically installs dependencies (`jq`) if missing.
+- Includes robust error handling and cleanup.
+## Prerequisites
+- Ensure the `api-data.json` file is placed in the same directory as the script before execution.
+- Example `api-data.json` content: ```
+  {
+    "author": "DanielFarmer",
+    "plugin_name": "CustomPlugin",
+    "version": "1.0"
+  }```
+## Quick Start
+To download, set up, and execute the script in a single command:
+```
+curl -O https://raw.githubusercontent.com/Daniel-Farmer/BaseTemplate/main/setup.sh && chmod +x setup.sh && sudo bash setup.sh
+```
+## Notes
+- The script cleans itself up after execution.
+- The plugin directory will be created in `/root/BaseTemplate`.
+- Customize the `api-data.json` file to fit your requirements.
+- ## Troubleshooting
+- If `jq` fails to install automatically, run:
   ```bash
-  curl -O https://raw.githubusercontent.com/Daniel-Farmer/BaseTemplate/main/setup.sh && chmod +x setup.sh && sudo ./setup.sh
+  sudo apt-get update && sudo apt-get install -y jq
+  ```
+  Then re-run the script.
