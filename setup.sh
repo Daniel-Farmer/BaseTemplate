@@ -6,7 +6,7 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-# Check and install 'jq' if it's not installed
+# Install 'jq' if it's not installed
 if ! command -v jq &>/dev/null; then
     echo "'jq' is not installed. Installing it now..."
     apt-get update && apt-get install -y jq
