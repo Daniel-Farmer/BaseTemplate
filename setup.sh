@@ -9,6 +9,29 @@ fi
 # Define the base project directory
 BASE_DIR="/root/BaseTemplate"
 
+# Check if the API JSON file exists
+API_FILE="api-data.json"
+if [ ! -f "$API_FILE" ]; then
+    echo "API data file ($API_FILE) not found! Please ensure it exists."
+    exit 1
+fi
+
+# Extract data from JSON using 'jq' (ensure jq is installed)
+if ! command -v jq &>/dev/null; then
+    echo "'jq' is not installed. Please install it and re-run the script."
+    exit 1
+fi
+
+AUTHOR=$(jq -r '.author' "$API_FILE")
+PLUGIN_NAME=$(jq -r '.plugin_name' "$API_FILE")
+VERSION=$(jq -r '.version' "$API_FILE")
+
+# Validate required fields
+if [ -z "$AUTHOR" ] || [ -z "$PLUGIN_NAME" ] || [ -z "$VERSION" ]; then
+    echo "Invalid API data! Ensure all fields (author, plugin_name, version) are provided."
+    exit 1
+fi
+
 # Remove any prior files or directories to ensure a clean setup
 if [ -d "$BASE_DIR" ]; then
     echo "Cleaning up existing files..."
@@ -17,56 +40,37 @@ fi
 
 # Create the main project directory structure
 echo "Setting up project structure..."
-mkdir -p "$BASE_DIR/src/main/java/com/yourname/myplugin"
+mkdir -p "$BASE_DIR/src/main/java/com/$AUTHOR/$PLUGIN_NAME"
 mkdir -p "$BASE_DIR/src/main/resources"
 
 # Write the plugin.yml file
 cat <<EOL > "$BASE_DIR/src/main/resources/plugin.yml"
-name: BaseTemplate
-version: 1.0
-main: com.yourname.myplugin.Main
+name: $PLUGIN_NAME
+version: $VERSION
+main: com.$AUTHOR.$PLUGIN_NAME.Main
 api-version: 1.18
 EOL
 echo "Created plugin.yml"
 
 # Write the Main.java file
-cat <<EOL > "$BASE_DIR/src/main/java/com/yourname/myplugin/Main.java"
-package com.yourname.myplugin;
+cat <<EOL > "$BASE_DIR/src/main/java/com/$AUTHOR/$PLUGIN_NAME/Main.java"
+package com.$AUTHOR.$PLUGIN_NAME;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class Main extends JavaPlugin {
     @Override
     public void onEnable() {
-        getLogger().info("BaseTemplate has been enabled!");
+        getLogger().info("$PLUGIN_NAME has been enabled!");
     }
 
     @Override
     public void onDisable() {
-        getLogger().info("BaseTemplate has been disabled!");
+        getLogger().info("$PLUGIN_NAME has been disabled!");
     }
 }
 EOL
 echo "Created Main.java"
-
-# Write the README.md file
-cat <<EOL > "$BASE_DIR/README.md"
-# BaseTemplate
-
-This repository contains the setup for a Minecraft plugin using the Spigot API.
-
-## Project Structure
-- **src/main/resources/plugin.yml**: The configuration file for the plugin.
-- **src/main/java/com/yourname/myplugin/Main.java**: The main class for the plugin.
-
-## How to Use
-1. Modify the \`Main.java\` and \`plugin.yml\` files as needed.
-2. Compile the project into a JAR file.
-3. Place the JAR file into the \`plugins\` folder of your Spigot Minecraft server.
-
-Happy coding!
-EOL
-echo "Created README.md"
 
 # Remove the script itself after execution
 SCRIPT_PATH=$(realpath "$0")
