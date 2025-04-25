@@ -7,7 +7,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # --- Configuration ---
-API_DATA_FILE="api-data.json"
+API_DATA_FILE="api-data.json" # Expect file in the current directory where script is run
 BASE_DIR="/root/BaseTemplate" # Root directory where plugin projects will be placed
 
 # --- Error Handling and Cleanup ---
@@ -19,6 +19,11 @@ cleanup_script() {
         echo "Cleaning up script file..."
         rm -f "$SCRIPT_PATH"
     fi
+    # Optional: Clean up the auto-generated json file if desired
+    # if [ "$CREATED_DEFAULT_JSON" = true ] && [ -f "$API_DATA_FILE" ]; then
+    #    echo "Cleaning up default $API_DATA_FILE..."
+    #    rm -f "$API_DATA_FILE"
+    # fi
 }
 
 # Get the script's absolute path early for cleanup
@@ -26,6 +31,9 @@ SCRIPT_PATH="$(realpath "$0")"
 
 # Set a trap to call cleanup_script on exit (including errors)
 trap cleanup_script EXIT
+
+# Flag to track if we created the default JSON
+CREATED_DEFAULT_JSON=false
 
 # --- Prerequisites Check and Installation ---
 
@@ -61,12 +69,25 @@ install_jq_with_retry() {
 # Function to install Maven
 install_maven() {
     echo "'maven' (mvn command) is not installed. Attempting to install it now..."
-    # No complex retry here, assume apt is unlocked after jq install
-    if apt-get update -y && apt-get install -y maven; then
-        if command_exists mvn; then echo "Maven installed successfully."; return 0;
-        else echo "Maven install finished, but 'mvn' command not found."; return 1; fi
+    # Basic retry for lock, similar to jq but simpler
+    MAX_RETRIES=3; WAIT_SECONDS=10; retry_count=0
+    while ! command_exists mvn && [ $retry_count -lt $MAX_RETRIES ]; do
+         retry_count=$((retry_count + 1))
+         if fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock >/dev/null 2>&1; then
+             echo "APT lock detected (maven install). Waiting ${WAIT_SECONDS}s (retry ${retry_count}/${MAX_RETRIES})..."
+             sleep $WAIT_SECONDS; continue
+         fi
+         echo "Attempting Maven installation (retry ${retry_count}/${MAX_RETRIES})..."
+         if apt-get update -y >/dev/null 2>&1 && apt-get install -y maven >/dev/null 2>&1; then
+            if command_exists mvn; then echo "Maven installed successfully."; return 0;
+            else echo "Maven install finished, but 'mvn' command not found."; fi
+         else echo "Maven installation attempt ${retry_count} failed."; fi
+         if ! command_exists mvn && [ $retry_count -lt $MAX_RETRIES ]; then echo "Waiting ${WAIT_SECONDS}s..."; sleep $WAIT_SECONDS; fi
+    done
+
+    if command_exists mvn; then echo "Maven was installed successfully after retries."; return 0;
     else
-        echo "-----------------------------------------------------"; echo "ERROR: Failed to install Maven."; echo "-----------------------------------------------------"
+        echo "-----------------------------------------------------"; echo "ERROR: Failed to install Maven after multiple attempts."; echo "-----------------------------------------------------"
         echo "Please install it manually: sudo apt-get update && sudo apt-get install -y maven"; echo "Then re-run the script."; return 1
     fi
 }
@@ -82,11 +103,34 @@ if ! command_exists mvn; then
 else echo "'maven' (mvn command) is already installed."; fi
 
 
-# --- JSON Data Reading ---
+# --- JSON Data Handling ---
 
-# Check if the API JSON file exists
+# Check if the API JSON file exists, create a default one if not
 if [ ! -f "$API_DATA_FILE" ]; then
-    echo "API data file ($API_DATA_FILE) not found! Please ensure it exists in the script's directory."; exit 1
+    echo "API data file ($API_DATA_FILE) not found in current directory. Creating a default one for testing..."
+    # Use cat with EOF to write the default content
+    cat <<EOF > "$API_DATA_FILE"
+{
+  "author": "DanielFarmer",
+  "plugin_name": "CustomPlugin",
+  "version": "1.0"
+}
+EOF
+    # Check if the file was created successfully
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to create default $API_DATA_FILE. Check permissions in the current directory."
+        exit 1
+    else
+        echo "Default $API_DATA_FILE created successfully."
+        CREATED_DEFAULT_JSON=true # Set flag for potential cleanup later if needed
+    fi
+else
+    echo "Using existing API data file: $API_DATA_FILE"
+fi
+
+# Final check to ensure the file now exists before proceeding
+if [ ! -f "$API_DATA_FILE" ]; then
+    echo "ERROR: $API_DATA_FILE still not found after check/creation attempt."; exit 1
 fi
 
 # Extract data using jq, exit on failure or null/empty values
@@ -142,7 +186,6 @@ cat <<EOL > "$MAIN_CLASS_FILE"
 package ${JAVA_PKG_PATH};
 
 import org.bukkit.plugin.java.JavaPlugin;
-// Removed explicit Logger import, using getLogger() is standard
 
 public class Main extends JavaPlugin {
 
@@ -217,15 +260,6 @@ cat <<EOL > "$POM_XML_FILE"
                         <configuration>
                              <!-- Optional: minimize jar size -->
                             <minimizeJar>true</minimizeJar>
-                             <!-- Optional: relocate dependencies if needed -->
-                            <!--
-                            <relocations>
-                                <relocation>
-                                    <pattern>com.example.dependency</pattern>
-                                    <shadedPattern>\${project.groupId}.shaded.dependency</shadedPattern>
-                                </relocation>
-                            </relocations>
-                            -->
                         </configuration>
                     </execution>
                 </executions>
@@ -248,13 +282,6 @@ cat <<EOL > "$POM_XML_FILE"
             <id>sonatype</id>
             <url>https://oss.sonatype.org/content/groups/public/</url>
         </repository>
-        <!-- Add other repositories if needed (e.g., PaperMC) -->
-        <!--
-        <repository>
-            <id>papermc-repo</id>
-            <url>https://repo.papermc.io/repository/maven-public/</url>
-        </repository>
-        -->
     </repositories>
 
     <dependencies>
@@ -265,7 +292,6 @@ cat <<EOL > "$POM_XML_FILE"
             <version>1.18.2-R0.1-SNAPSHOT</version> <!-- Example: 1.18.2 - CHANGE AS NEEDED -->
             <scope>provided</scope>
         </dependency>
-        <!-- Add other dependencies here -->
     </dependencies>
 </project>
 EOL
