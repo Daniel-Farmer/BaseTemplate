@@ -103,8 +103,8 @@ pom_xml_content=$(cat <<'EOF'
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.1</version>
                 <configuration>
-                    <source>\${java.version}</source>
-                    <target>\${java.version}</target>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
                 </configuration>
             </plugin>
         </plugins>
@@ -138,10 +138,27 @@ response=$(curl -s -X POST \
     -d "$api_payload" \
     https://example.googleapis.com/v1/code-gen)
 
-# Parse the JSON response to extract the new file contents
+# Validate API response
+if [ -z "$response" ] || ! echo "$response" | jq . > /dev/null 2>&1; then
+    echo "Error: Invalid response from API."
+    exit 1
+fi
+
+# Parse JSON response
 new_main_java=$(echo "$response" | jq -r '.["main.java"]')
 new_plugin_yml=$(echo "$response" | jq -r '.["plugin.yml"]')
 new_pom_xml=$(echo "$response" | jq -r '.["pom.xml"]')
+
+# Handle empty or malformed responses
+if [ -z "$new_main_java" ] || [ "$new_main_java" == "null" ]; then
+    new_main_java="$main_java_content"
+fi
+if [ -z "$new_plugin_yml" ] || [ "$new_plugin_yml" == "null" ]; then
+    new_plugin_yml="$plugin_yml_content"
+fi
+if [ -z "$new_pom_xml" ] || [ "$new_pom_xml" == "null" ]; then
+    new_pom_xml="$pom_xml_content"
+fi
 
 # Update the project files
 echo "$new_main_java" > "$project_dir/src/main/java/com/example/plugin/Main.java"
