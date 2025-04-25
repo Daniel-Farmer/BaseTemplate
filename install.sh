@@ -8,12 +8,9 @@ cat <<EOF > /root/details.json
 {
     "userid": "danielfarmer",
     "projectid": "89422",
-    "prompt": "when the server starts say hello world",
+    "prompt": "when the server starts say hello world"
 }
 
-project_dir=$(jq -r '.projectid' details.json)
+project_dir=$(jq -r '.projectid' /root/details.json)
 
 mkdir -p "$project_dir"
-
-
-rm -r setup.sh
