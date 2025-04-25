@@ -9,10 +9,6 @@ dpkg -l | grep -qw jq || sudo apt install jq -y -q
 # Check if Maven is installed and install it if needed
 dpkg -l | grep -qw maven || sudo apt install maven -y -q
 
-# Create the project directory and subdirectories
-project_dir=$(jq -r '.projectid' /root/details.json)
-mkdir -p "$project_dir/src/main/java"
-
 # Create an example JSON file
 cat <<EOF > /root/details.json
 {
@@ -23,8 +19,15 @@ cat <<EOF > /root/details.json
 }
 EOF
 
-# Create the main Java class file
+# Extract variables from the JSON file
+project_dir=$(jq -r '.projectid' /root/details.json)
 plugin_name=$(jq -r '.plugin_name' /root/details.json)
+
+# Create the project directory and subdirectories
+mkdir -p "$project_dir/src/main/java"
+mkdir -p "$project_dir/src/main/resources"
+
+# Create the main Java class file
 cat <<EOF > "$project_dir/src/main/java/Main.java"
 package $project_dir;
 
@@ -114,6 +117,6 @@ cd "$project_dir"
 mvn clean package
 
 # Remove the installation script
-rm -r install.sh
+rm -r /root/install.sh
 
 echo "Spigot plugin structure with Maven created and compiled successfully in '$project_dir'."
