@@ -9,6 +9,9 @@ dpkg -l | grep -qw jq || sudo apt install jq -y -q
 # Check if Maven is installed and install it if needed
 dpkg -l | grep -qw maven || sudo apt install maven -y -q
 
+# Check if Java is installed and install it if needed
+dpkg -l | grep -qw openjdk-17-jdk || sudo apt install openjdk-17-jdk -y -q
+
 # Create an example JSON file
 cat <<EOF > /root/details.json
 {
@@ -26,6 +29,18 @@ plugin_name=$(jq -r '.plugin_name' /root/details.json)
 # Create the project directory and subdirectories
 mkdir -p "$project_dir/src/main/java"
 mkdir -p "$project_dir/src/main/resources"
+
+# Download BuildTools.jar to install the Spigot API
+buildtools_dir="/root/BuildTools"
+mkdir -p "$buildtools_dir"
+cd "$buildtools_dir"
+curl -O https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+
+# Run BuildTools to compile and install Spigot API in the local Maven repository
+java -jar BuildTools.jar --rev 1.18
+
+# Return to the root directory
+cd /root
 
 # Create the main Java class file
 cat <<EOF > "$project_dir/src/main/java/Main.java"
@@ -71,7 +86,7 @@ cat <<EOF > "$project_dir/pom.xml"
     <description>A Minecraft Spigot Plugin</description>
 
     <properties>
-        <java.version>8</java.version>
+        <java.version>17</java.version>
     </properties>
 
     <dependencies>
@@ -94,19 +109,6 @@ cat <<EOF > "$project_dir/pom.xml"
                     <target>\${java.version}</target>
                 </configuration>
             </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>3.2.0</version>
-                <configuration>
-                    <archive>
-                        <manifest>
-                            <addClasspath>true</addClasspath>
-                            <mainClass>$project_dir.Main</mainClass>
-                        </manifest>
-                    </archive>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 </project>
@@ -119,4 +121,4 @@ mvn clean package
 # Remove the installation script
 rm -r /root/install.sh
 
-echo "Spigot plugin structure with Maven created and compiled successfully in '$project_dir'."
+echo "Spigot plugin structure with Maven and BuildTools created and compiled successfully in '$project_dir'."
