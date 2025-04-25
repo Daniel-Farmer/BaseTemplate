@@ -4,7 +4,7 @@
 sudo apt update -y -q
 sudo apt get jq -y -q 
 
-cat <<EOF > details.json
+cat <<EOF > /root/details.json
 {
     "userid": "danielfarmer",
     "projectid": "89422",
