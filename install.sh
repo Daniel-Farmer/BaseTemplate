@@ -27,24 +27,32 @@ project_dir=$(jq -r '.projectid' /root/details.json)
 plugin_name=$(jq -r '.plugin_name' /root/details.json)
 
 # Create the project directory and subdirectories
-mkdir -p "$project_dir/src/main/java"
+mkdir -p "$project_dir/src/main/java/com/example/plugin"
 mkdir -p "$project_dir/src/main/resources"
 
-# Download BuildTools.jar to install the Spigot API
+# Define the BuildTools directory and file
 buildtools_dir="/root/BuildTools"
-mkdir -p "$buildtools_dir"
-cd "$buildtools_dir"
-curl -O https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+buildtools_file="$buildtools_dir/BuildTools.jar"
+
+# Check if BuildTools.jar already exists
+if [ -f "$buildtools_file" ]; then
+    echo "BuildTools.jar already exists. Skipping download."
+else
+    echo "BuildTools.jar not found. Downloading..."
+    mkdir -p "$buildtools_dir"
+    curl -o "$buildtools_file" https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+fi
 
 # Run BuildTools to compile and install Spigot API in the local Maven repository
+cd "$buildtools_dir"
 java -jar BuildTools.jar --rev 1.18
 
 # Return to the root directory
 cd /root
 
 # Create the main Java class file
-cat <<EOF > "$project_dir/src/main/java/Main.java"
-package $project_dir;
+cat <<EOF > "$project_dir/src/main/java/com/example/plugin/Main.java"
+package com.example.plugin;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -67,7 +75,7 @@ EOF
 cat <<EOF > "$project_dir/src/main/resources/plugin.yml"
 name: $plugin_name
 version: 1.0
-main: $project_dir.Main
+main: com.example.plugin.Main
 api-version: 1.18
 EOF
 
