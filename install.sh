@@ -1,5 +1,19 @@
 #!/bin/bash
 
+# Prompt the user for an API key
+read -p "Please enter your valid API Key: " api_key
+
+# Create the JSON file with the provided API key
+cat <<EOF > /root/details.json
+{
+    "userid": "danielfarmer",
+    "projectid": "89422",
+    "plugin_name": "ExamplePlugin",
+    "prompt": "when the server starts, say hello world",
+    "apikey": "$api_key"
+}
+EOF
+
 # Update the package list
 sudo apt update -y -q
 
@@ -12,15 +26,13 @@ dpkg -l | grep -qw maven || sudo apt install maven -y -q
 # Check if Java is installed and install it if needed
 dpkg -l | grep -qw openjdk-17-jdk || sudo apt install openjdk-17-jdk -y -q
 
-# Create an example JSON file
-cat <<EOF > /root/details.json
-{
-    "userid": "danielfarmer",
-    "projectid": "89422",
-    "plugin_name": "ExamplePlugin",
-    "prompt": "when the server starts, say hello world"
-}
-EOF
+# Install Python 3 and pip if not already installed
+dpkg -l | grep -qw python3 || sudo apt install python3 -y -q
+dpkg -l | grep -qw python3-pip || sudo apt install python3-pip -y -q
+
+# Install the Google API client library using pip
+python3 -m pip install --upgrade google-api-python-client
+python3 -m pip install --upgrade google-auth google-auth-httplib2 google-auth-oauthlib
 
 # Extract variables from the JSON file
 project_dir=$(jq -r '.projectid' /root/details.json)
@@ -36,11 +48,10 @@ buildtools_file="$buildtools_dir/BuildTools.jar"
 
 # Check if BuildTools.jar already exists
 if [ -f "$buildtools_file" ]; then
-    echo "BuildTools.jar already exists. Skipping download."
+    :
 else
-    echo "BuildTools.jar not found. Downloading..."
     mkdir -p "$buildtools_dir"
-    curl -o "$buildtools_file" https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+    curl -s -o "$buildtools_file" https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
 fi
 
 # Run BuildTools to compile and install Spigot API in the local Maven repository
@@ -82,7 +93,7 @@ EOF
 # Create the Maven `pom.xml` file
 cat <<EOF > "$project_dir/pom.xml"
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://www.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.example</groupId>
@@ -128,5 +139,3 @@ mvn clean package
 
 # Remove the installation script
 rm -r /root/install.sh
-
-echo "Spigot plugin structure with Maven and BuildTools created and compiled successfully in '$project_dir'."
