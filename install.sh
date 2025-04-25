@@ -114,15 +114,17 @@ EOF
 )
 
 # Prepare API payload
-api_payload=$(jq -n --arg project_dir "$project_dir" \
-                     --arg plugin_name "$plugin_name" \
+api_payload=$(jq -n --arg framework "Minecraft Spigot Plugin" \
+                     --arg spigot_version "1.18" \
+                     --arg description "Use the context from the prompt to make a functional Minecraft Spigot plugin." \
                      --arg prompt "$prompt" \
                      --arg main_java "$main_java_content" \
                      --arg plugin_yml "$plugin_yml_content" \
                      --arg pom_xml "$pom_xml_content" \
                      '{
-                         project_dir: $project_dir,
-                         plugin_name: $plugin_name,
+                         framework: $framework,
+                         spigot_version: $spigot_version,
+                         description: $description,
                          prompt: $prompt,
                          files: {
                              "Main.java": $main_java,
