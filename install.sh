@@ -3,13 +3,16 @@
 # Prompt the user for an API key
 read -p "Please enter your valid API Key: " api_key
 
-# Create the JSON file with the provided API key
+# Prompt the user for a plugin idea
+read -p "Please enter a plugin idea: " plugin_idea
+
+# Create the JSON file with the provided API key and plugin idea
 cat <<EOF > /root/details.json
 {
     "userid": "danielfarmer",
     "projectid": "89422",
     "plugin_name": "ExamplePlugin",
-    "prompt": "when the server starts, say hello world",
+    "prompt": "$plugin_idea",
     "apikey": "$api_key"
 }
 EOF
@@ -37,32 +40,15 @@ python3 -m pip install --upgrade google-auth google-auth-httplib2 google-auth-oa
 # Extract variables from the JSON file
 project_dir=$(jq -r '.projectid' /root/details.json)
 plugin_name=$(jq -r '.plugin_name' /root/details.json)
+prompt=$(jq -r '.prompt' /root/details.json)
+api_key=$(jq -r '.apikey' /root/details.json)
 
 # Create the project directory and subdirectories
 mkdir -p "$project_dir/src/main/java/com/example/plugin"
 mkdir -p "$project_dir/src/main/resources"
 
-# Define the BuildTools directory and file
-buildtools_dir="/root/BuildTools"
-buildtools_file="$buildtools_dir/BuildTools.jar"
-
-# Check if BuildTools.jar already exists
-if [ -f "$buildtools_file" ]; then
-    :
-else
-    mkdir -p "$buildtools_dir"
-    curl -s -o "$buildtools_file" https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
-fi
-
-# Run BuildTools to compile and install Spigot API in the local Maven repository
-cd "$buildtools_dir"
-java -jar BuildTools.jar --rev 1.18
-
-# Return to the root directory
-cd /root
-
-# Create the main Java class file
-cat <<EOF > "$project_dir/src/main/java/com/example/plugin/Main.java"
+# Get initial file contents
+main_java_content=$(cat <<'EOF'
 package com.example.plugin;
 
 import org.bukkit.plugin.java.JavaPlugin;
@@ -71,43 +57,37 @@ public class Main extends JavaPlugin {
     @Override
     public void onEnable() {
         // Plugin startup logic
-        getLogger().info("$plugin_name enabled!");
     }
 
     @Override
     public void onDisable() {
         // Plugin shutdown logic
-        getLogger().info("$plugin_name disabled!");
     }
 }
 EOF
+)
 
-# Create the plugin.yml file
-cat <<EOF > "$project_dir/src/main/resources/plugin.yml"
-name: $plugin_name
+plugin_yml_content=$(cat <<'EOF'
+name: ExamplePlugin
 version: 1.0
 main: com.example.plugin.Main
 api-version: 1.18
 EOF
+)
 
-# Create the Maven `pom.xml` file
-cat <<EOF > "$project_dir/pom.xml"
+pom_xml_content=$(cat <<'EOF'
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://www.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-
     <groupId>com.example</groupId>
-    <artifactId>$plugin_name</artifactId>
+    <artifactId>ExamplePlugin</artifactId>
     <version>1.0</version>
     <packaging>jar</packaging>
-
-    <name>$plugin_name</name>
+    <name>ExamplePlugin</name>
     <description>A Minecraft Spigot Plugin</description>
-
     <properties>
         <java.version>17</java.version>
     </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.spigotmc</groupId>
@@ -116,7 +96,6 @@ cat <<EOF > "$project_dir/pom.xml"
             <scope>provided</scope>
         </dependency>
     </dependencies>
-
     <build>
         <plugins>
             <plugin>
@@ -132,10 +111,43 @@ cat <<EOF > "$project_dir/pom.xml"
     </build>
 </project>
 EOF
+)
+
+# Prepare API payload
+api_payload=$(jq -n --arg project_dir "$project_dir" \
+                     --arg plugin_name "$plugin_name" \
+                     --arg prompt "$prompt" \
+                     --arg main_java "$main_java_content" \
+                     --arg plugin_yml "$plugin_yml_content" \
+                     --arg pom_xml "$pom_xml_content" \
+                     '{
+                         project_dir: $project_dir,
+                         plugin_name: $plugin_name,
+                         prompt: $prompt,
+                         files: {
+                             "Main.java": $main_java,
+                             "plugin.yml": $plugin_yml,
+                             "pom.xml": $pom_xml
+                         }
+                     }')
+
+# Send the API request to Google
+response=$(curl -s -X POST \
+    -H "Authorization: Bearer $api_key" \
+    -H "Content-Type: application/json" \
+    -d "$api_payload" \
+    https://example.googleapis.com/v1/code-gen)
+
+# Parse the JSON response to extract the new file contents
+new_main_java=$(echo "$response" | jq -r '.["main.java"]')
+new_plugin_yml=$(echo "$response" | jq -r '.["plugin.yml"]')
+new_pom_xml=$(echo "$response" | jq -r '.["pom.xml"]')
+
+# Update the project files
+echo "$new_main_java" > "$project_dir/src/main/java/com/example/plugin/Main.java"
+echo "$new_plugin_yml" > "$project_dir/src/main/resources/plugin.yml"
+echo "$new_pom_xml" > "$project_dir/pom.xml"
 
 # Compile the plugin using Maven
 cd "$project_dir"
 mvn clean package
-
-# Remove the installation script
-rm -r /root/install.sh
