@@ -2,7 +2,7 @@
 
 # updates the system and installs requirements
 sudo apt update -y -q
-sudo apt get jq -y -q 
+sudo apt install jq -y -q 
 
 cat <<EOF > /root/details.json
 {
