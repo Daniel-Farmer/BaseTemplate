@@ -1,10 +1,12 @@
 #!/bin/bash
 
-# Updates the system and installs dependencies.
+# Update the package list
 sudo apt update -y -q
-sudo apt install jq -y -q
 
-# Creates an example JSON file.
+# Check if jq is installed and install it if needed
+dpkg -l | grep -qw jq || sudo apt install jq -y -q
+
+# Create an example JSON file
 cat <<EOF > /root/details.json
 {
     "userid": "danielfarmer",
@@ -13,9 +15,9 @@ cat <<EOF > /root/details.json
 }
 EOF
 
-# Creates the project directory.
+# Create the project directory based on the projectid in the JSON file
 project_dir=$(jq -r '.projectid' /root/details.json)
 mkdir -p "$project_dir"
 
-# Removes the installation file.
+# Remove the installation file
 rm -r install.sh
